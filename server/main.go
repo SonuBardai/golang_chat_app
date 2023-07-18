@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"sync"
 
 	"github.com/go-faker/faker/v4"
 	"github.com/google/uuid"
@@ -22,14 +23,19 @@ func newUser(ws *websocket.Conn, userName string) User {
 
 type Users struct {
 	conns []User
+	mu sync.Mutex
 }
 
 func (u *Users) addUser(ws *websocket.Conn, userName string) {
+	u.mu.Lock()
+	defer u.mu.Unlock()
 	u.conns = append(u.conns, newUser(ws, userName))
 }
 
 func (u *Users) broadcast(message string) {
 	fmt.Println("Broadcasting to Users: ", u.conns)
+	u.mu.Lock()
+	defer u.mu.Unlock()
 	for _, user := range u.conns {
 		if err := websocket.Message.Send(user.conn, message); err != nil {
 			fmt.Println("error sending message")
@@ -55,7 +61,6 @@ func WSHandler(ws *websocket.Conn) {
 		}
 		fmt.Println("Received from socket: ", message)
 		wsConnection.users.broadcast(message)
-		fmt.Println("Global Users: ", globalUsers)
 		for _, user := range wsConnection.users.conns {
 			fmt.Println(user.conn.RemoteAddr())
 		}
