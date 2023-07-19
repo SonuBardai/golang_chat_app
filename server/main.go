@@ -23,7 +23,7 @@ func newUser(ws *websocket.Conn, userName string) User {
 
 type Users struct {
 	conns []User
-	mu sync.Mutex
+	mu    sync.Mutex
 }
 
 func (u *Users) addUser(ws *websocket.Conn, userName string) {
@@ -32,12 +32,23 @@ func (u *Users) addUser(ws *websocket.Conn, userName string) {
 	u.conns = append(u.conns, newUser(ws, userName))
 }
 
+func (u *Users) removeUser(ws *websocket.Conn) {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	for i, user := range u.conns {
+		if user.conn == ws {
+			u.conns = append(u.conns[:i], u.conns[i+1:]...)
+		}
+	}
+}
+
 func (u *Users) broadcast(message string) {
 	fmt.Println("Broadcasting to Users: ", u.conns)
 	u.mu.Lock()
 	defer u.mu.Unlock()
 	for _, user := range u.conns {
 		if err := websocket.Message.Send(user.conn, message); err != nil {
+			u.removeUser(user.conn)
 			fmt.Println("error sending message")
 		}
 	}
@@ -57,6 +68,7 @@ func WSHandler(ws *websocket.Conn) {
 	for {
 		if err := websocket.Message.Receive(ws, &message); err != nil {
 			fmt.Println("error receiving message")
+			globalUsers.removeUser(ws)
 			return
 		}
 		fmt.Println("Received from socket: ", message)
