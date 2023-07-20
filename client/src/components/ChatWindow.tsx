@@ -5,7 +5,7 @@ const ChatWindow: React.FC<{
   username: string;
 }> = ({ messages, username }) => {
   return (
-    <ul className="p-4 overflow-y-auto bg-gray-800 rounded-md">
+    <ul className="p-4 min-h-[90vh] overflow-y-auto bg-gray-800 rounded-md">
       {messages.map((message, index) => (
         <li
           key={index}

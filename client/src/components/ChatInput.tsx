@@ -12,7 +12,7 @@ const ChatInput: React.FC<{ onSendMessage: (message: string) => void }> = ({
   };
 
   return (
-    <form onSubmit={handleSendMessage} className="flex p-4">
+    <form onSubmit={handleSendMessage} className="flex p-4 min-h-[10vh]">
       <input
         type="text"
         value={message}
