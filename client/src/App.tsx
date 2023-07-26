@@ -3,7 +3,12 @@ import ChatInput from "./components/ChatInput";
 import ChatWindow from "./components/ChatWindow";
 import Error from "./components/Error";
 import UsernamePrompt from "./components/UsernamePrompt";
-import { RenderableMessage } from "./types/Message";
+import {
+  BroadcastMessage,
+  NewUserMessage,
+  RenderableMessage,
+  ServerMessage,
+} from "./types/Message";
 
 function App() {
   const [messages, setMessages] = useState<Array<RenderableMessage>>([]);
@@ -13,22 +18,58 @@ function App() {
   const [socket, setSocket] = useState<WebSocket | null>(null);
 
   useEffect(() => {
-    setSocket(new WebSocket("ws://localhost:3001/ws"));
+    if (!socket) {
+      setSocket(new WebSocket("ws://localhost:3001/ws"));
+    }
     return () => {
       socket?.close();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleSendMessage = (message: string) => {
-    setMessages([...messages, { user: username, message }]);
+    const newMessage: BroadcastMessage = {
+      messageType: "broadcastMessage",
+      username,
+      content: message,
+    };
+    socket?.send(JSON.stringify(newMessage));
   };
 
   useEffect(() => {
     if (socket) {
       socket.onmessage = (event) => {
-        // check message type and handle
+        const message: ServerMessage = JSON.parse(event.data);
+        switch (message.messageType) {
+          case "newUser":
+            setMessages((currentMessages) => [
+              ...currentMessages,
+              {
+                message: `New user ${message.username} has joined the chat`,
+                user: "server",
+                level: "info",
+              },
+            ]);
+            break;
+          case "broadcastMessage":
+            if ("content" in message) {
+              setMessages((currentMessages) => [
+                ...currentMessages,
+                {
+                  message: message.content,
+                  user: message.username,
+                  level: null,
+                },
+              ]);
+            }
+            break;
+          default:
+            console.error("Unknown message received");
+            break;
+        }
       };
-      socket.onclose = (event) => {
+      socket.onclose = (error) => {
+        console.error(error);
         setError("Connection lost with server");
       };
     }
@@ -37,7 +78,8 @@ function App() {
   const handleSetUsername = (username: string) => {
     setUsername(username);
     setShowPrompt(false);
-    socket?.send(`New user: ${username}`);
+    const newUser: NewUserMessage = { messageType: "newUser", username };
+    socket?.send(JSON.stringify(newUser));
   };
 
   return (
